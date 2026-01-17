@@ -35,7 +35,8 @@ const TaskSchema = new mongoose.Schema({
 const DaySchema = new mongoose.Schema({
   date: String,
   completedTasks: [String],
-  points: Number
+  points: Number,
+  note: String
 });
 
 const Task = mongoose.model("Task", TaskSchema);
@@ -115,10 +116,12 @@ app.post("/submit", async (req, res) => {
   const completed = req.body.tasks || [];
   if (!completed.length) return res.status(400).send("NO_TASKS_SELECTED");
 
+  console.log('req.body.note' , req.body.note);
   await Day.create({
     date: today(),
     completedTasks: completed,
-    points: completed.length
+    points: completed.length,
+    note: req.body.note || ""
   });
 
   res.send("OK");
@@ -201,6 +204,10 @@ body { background:#f4f6f8; }
                 )
                 .join("")}
             </ul>
+            <div class="input-field">
+              <input id="note" type="text" placeholder="Any note for today? (optional)">
+            </div>
+
             <button class="btn green full-width">Submit Today</button>
           </form>
         </div>
@@ -251,6 +258,9 @@ fetch("/data").then(r=>r.json()).then(d=>{
         <div class="grey-text" style="font-size:13px;">
           Tasks: \${day.completedTasks.join(", ")}
         </div>
+        <div class="grey-text" style="font-size:13px;">
+          Reflection: \${day.note || "N/A"}
+        </div>
       </li>\`;
   });
 
@@ -278,7 +288,7 @@ document.getElementById("taskForm").onsubmit = async e=>{
   const res = await fetch("/submit",{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ tasks: checked.map(c=>c.value) })
+    body: JSON.stringify({ tasks: checked.map(c=>c.value) , note: document.getElementById("note").value })
   });
 
   if(await res.text()==="OK") location.reload();
