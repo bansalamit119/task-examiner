@@ -4,15 +4,22 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 const axios = require("axios");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* ===================== SERVE ONESIGNAL FILES FROM ROOT ===================== */
+// This is REQUIRED for OneSignal web push
+app.use(express.static(path.join(__dirname)));
+
 /* ===================== DB ===================== */
 
+mongoose.set("bufferCommands", false);
+
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 })
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => {
     console.error("❌ MongoDB connection failed");
@@ -39,7 +46,7 @@ const Day = mongoose.model("Day", DaySchema);
 const today = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-/* ===================== EMAIL ===================== */
+/* ===================== EMAIL (OPTIONAL) ===================== */
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -51,19 +58,34 @@ const transporter = nodemailer.createTransport({
 
 /* ===================== CRONS ===================== */
 
+// 🔔 OneSignal Push Reminder – 10:30 PM IST
 cron.schedule(
   "30 22 * * *",
   async () => {
-    await transporter.sendMail({
-      from: `"Daily Tasks" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: "Daily Task Reminder",
-      html: `<p>Don't forget to submit your daily tasks today 💪</p>`
-    });
+    try {
+      await axios.post(
+        "https://onesignal.com/api/v1/notifications",
+        {
+          app_id: process.env.ONESIGNAL_APP_ID,
+          included_segments: ["Subscribed Users"],
+          headings: { en: "Daily Task Reminder" },
+          contents: { en: "Don’t forget to submit your tasks today 💪" }
+        },
+        {
+          headers: {
+            Authorization: `Basic ${process.env.ONESIGNAL_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    } catch (err) {
+      console.error("❌ OneSignal push failed");
+    }
   },
   { timezone: "Asia/Kolkata" }
 );
 
+// Keep Render awake (best effort)
 cron.schedule("*/10 * * * *", async () => {
   try {
     await axios.get(`${process.env.BASE_URL}/health`);
@@ -114,10 +136,23 @@ app.get("/", async (_, res) => {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+<!-- OneSignal SDK -->
+<script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
+<script>
+window.OneSignal = window.OneSignal || [];
+OneSignal.push(function() {
+  OneSignal.init({
+    appId: "${process.env.ONESIGNAL_APP_ID}",
+    serviceWorkerPath: "OneSignalSDKWorker.js",
+    serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js",
+    notifyButton: { enable: true }
+  });
+});
+</script>
+
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 
 <title>Daily Tasks</title>
 
@@ -139,41 +174,39 @@ body { background:#f4f6f8; }
   <h5 class="center-align">Daily Tasks ✅</h5>
   <p class="center-align grey-text">${new Date(today()).toDateString()}</p>
 
-  <div id="mainContent">
-    ${
-      todayDone
-        ? `
-        <div class="success-box">
-          <h6>Okay, done for the day ✅</h6>
-          <div class="motivation">
-            Consistency beats motivation. See you tomorrow 🔥
-          </div>
+  ${
+    todayDone
+      ? `
+      <div class="success-box">
+        <h6>Okay, done for the day ✅</h6>
+        <div class="motivation">
+          Consistency beats motivation. See you tomorrow 🔥
         </div>
-        `
-        : `
-        <div class="card">
-          <div class="card-content">
-            <form id="taskForm">
-              <ul class="collection">
-                ${tasks
-                  .map(
-                    t => `
-                  <li class="collection-item">
-                    <label>
-                      <input type="checkbox" value="${t.name}" />
-                      <span>${t.name}</span>
-                    </label>
-                  </li>`
-                  )
-                  .join("")}
-              </ul>
-              <button class="btn green full-width">Submit Today</button>
-            </form>
-          </div>
+      </div>
+      `
+      : `
+      <div class="card">
+        <div class="card-content">
+          <form id="taskForm">
+            <ul class="collection">
+              ${tasks
+                .map(
+                  t => `
+                <li class="collection-item">
+                  <label>
+                    <input type="checkbox" value="${t.name}" />
+                    <span>${t.name}</span>
+                  </label>
+                </li>`
+                )
+                .join("")}
+            </ul>
+            <button class="btn green full-width">Submit Today</button>
+          </form>
         </div>
-        `
-    }
-  </div>
+      </div>
+      `
+  }
 
   <div class="center-align" style="margin-top:16px;">
     <a class="btn modal-trigger blue" href="#addTaskModal">Add Task</a>
@@ -195,7 +228,7 @@ body { background:#f4f6f8; }
 <!-- HISTORY MODAL -->
 <div id="historyModal" class="modal">
   <div class="modal-content">
-    <h6>Total Points: <span id="totalPoints">0</span></h6>
+    <h6>Total Points</h6>
     <canvas id="pointsChart"></canvas>
     <ul class="collection" id="historyList"></ul>
   </div>
@@ -204,21 +237,11 @@ body { background:#f4f6f8; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
 <script>
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "3bc49254-90cb-4a82-b339-f7ba86e3f403",
-    });
-  });
-  
 document.addEventListener("DOMContentLoaded",()=> {
   M.Modal.init(document.querySelectorAll(".modal"));
 });
 
 fetch("/data").then(r=>r.json()).then(d=>{
-  document.getElementById("totalPoints").innerText =
-    d.days.reduce((a,b)=>a+b.points,0);
-
   const history = document.getElementById("historyList");
   d.days.forEach(day=>{
     history.innerHTML += \`
@@ -235,11 +258,7 @@ fetch("/data").then(r=>r.json()).then(d=>{
     type:"line",
     data:{
       labels:d.days.map(x=>new Date(x.date).toDateString()),
-      datasets:[{
-        label:"Daily Points",
-        data:d.days.map(x=>x.points),
-        tension:0.3
-      }]
+      datasets:[{ data:d.days.map(x=>x.points), label:"Daily Points" }]
     }
   });
 });
@@ -266,7 +285,6 @@ document.getElementById("taskForm").onsubmit = async e=>{
 };`
 }
 </script>
-
 </body>
 </html>`);
 });
