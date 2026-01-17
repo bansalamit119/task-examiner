@@ -47,6 +47,49 @@ const Day = mongoose.model("Day", DaySchema);
 const today = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
+const getCurrentStreak = (days) => {
+  let streak = 0;
+  let cursor = new Date(today());
+  const dateSet = new Set(days.map(d => d.date));
+
+  while (dateSet.has(cursor.toLocaleDateString("en-CA"))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+};
+
+const getLongestStreak = (days) => {
+  if (!days.length) return 0;
+
+  const sorted = days
+    .map(d => new Date(d.date))
+    .sort((a, b) => a - b);
+
+  let longest = 1;
+  let current = 1;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const diff =
+      (sorted[i] - sorted[i - 1]) / (1000 * 60 * 60 * 24);
+
+    if (diff === 1) {
+      current++;
+      longest = Math.max(longest, current);
+    } else {
+      current = 1;
+    }
+  }
+
+  return longest;
+};
+
+const getMotivationMessage = () => {
+  const index = Math.floor(Math.random() * motivationMessages.length);
+  return motivationMessages[index];
+};
+
 /* ===================== EMAIL (OPTIONAL) ===================== */
 
 const transporter = nodemailer.createTransport({
@@ -100,7 +143,13 @@ app.get("/health", (_, res) => res.send("OK"));
 app.get("/data", async (_, res) => {
   const tasks = await Task.find().sort({ createdAt: 1 });
   const days = await Day.find().sort({ date: 1 });
-  res.json({ tasks, days, today: today() });
+  res.json({
+  tasks,
+  days,
+  today: today(),
+  currentStreak: getCurrentStreak(days),
+  longestStreak: getLongestStreak(days)
+});
 });
 
 app.post("/add-task", async (req, res) => {
@@ -128,6 +177,45 @@ app.post("/submit", async (req, res) => {
 });
 
 /* ===================== UI ===================== */
+
+const motivationMessages = [
+  // Core habit & discipline
+  "Consistency beats motivation. See you tomorrow 🔥",
+  "Small steps every day lead to big results 💪",
+  "You showed up today. That’s what matters 👏",
+  "Progress over perfection. Keep moving ✨",
+
+  // Osho-inspired (awareness & inner fire)
+  "Discipline is not force — it’s love for your future self 🌱",
+  "When you act consciously, even small acts become powerful 🔥",
+  "Don’t wait for motivation. Awareness itself creates energy.",
+  "Your daily actions are your meditation in motion 🧘",
+
+  // Buddha-inspired (right effort & persistence)
+  "Drop by drop, the pot is filled. Continue calmly 🌊",
+  "Right effort today makes tomorrow lighter.",
+  "Peace comes from steady practice, not sudden bursts.",
+  "Walk the path patiently — every step counts ☸️",
+
+  // Nietzsche-inspired (will & becoming)
+  "Become stronger through repetition — that is the way.",
+  "He who has a reason to continue will endure the day.",
+  "Comfort weakens the will. Discipline sharpens it ⚔️",
+  "You are becoming — do not interrupt the process.",
+
+  // 50 Cent–inspired (grit & hunger)
+  "Stay hungry. Comfort kills growth.",
+  "Discipline creates options. Laziness closes doors.",
+  "Do the work quietly. Results will make noise.",
+  "No excuses today. That’s how momentum is built.",
+
+  // Blend / modern
+  "You didn’t rely on mood today — you relied on discipline.",
+  "Show up again tomorrow. That’s how identity is built.",
+  "One focused day beats ten emotional plans.",
+  "You’re training your mind more than your body today 💯"
+];
+
 
 app.get("/", async (_, res) => {
   const todayDone = await Day.findOne({ date: today() });
@@ -176,6 +264,7 @@ body { background:#f4f6f8; }
 <div class="container">
   <h5 class="center-align">Daily Tasks ✅</h5>
   <p class="center-align grey-text">${new Date(today()).toDateString()}</p>
+  <h6 class="center-align" id="streakInfo"></h6>
 
   ${
     todayDone
@@ -183,7 +272,7 @@ body { background:#f4f6f8; }
       <div class="success-box">
         <h6>Okay, done for the day ✅</h6>
         <div class="motivation">
-          Consistency beats motivation. See you tomorrow 🔥
+          ${getMotivationMessage()}
         </div>
       </div>
       `
@@ -249,6 +338,10 @@ document.addEventListener("DOMContentLoaded",()=> {
 });
 
 fetch("/data").then(r=>r.json()).then(d=>{
+  document.getElementById("streakInfo").innerText =
+  "🔥 Current Streak: " + d.currentStreak +
+  " days | 🏆 Longest: " + d.longestStreak + " days";
+
   const history = document.getElementById("historyList");
   d.days.forEach(day=>{
     history.innerHTML += \`
