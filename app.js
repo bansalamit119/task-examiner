@@ -117,6 +117,7 @@ app.get("/", async (_, res) => {
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 
 <title>Daily Tasks</title>
 
@@ -203,6 +204,13 @@ body { background:#f4f6f8; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
 <script>
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "3bc49254-90cb-4a82-b339-f7ba86e3f403",
+    });
+  });
+  
 document.addEventListener("DOMContentLoaded",()=> {
   M.Modal.init(document.querySelectorAll(".modal"));
 });
@@ -258,6 +266,7 @@ document.getElementById("taskForm").onsubmit = async e=>{
 };`
 }
 </script>
+
 </body>
 </html>`);
 });
