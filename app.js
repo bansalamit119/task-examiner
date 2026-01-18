@@ -85,6 +85,70 @@ const getLongestStreak = (days) => {
   return longest;
 };
 
+const getLast7Dates = () => {
+  const dates = [];
+  const cursor = new Date(today());
+
+  for (let i = 0; i < 7; i++) {
+    dates.push(cursor.toLocaleDateString("en-CA"));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return dates;
+};
+
+const getWeeklySummary = (days) => {
+  const last7 = getLast7Dates();
+  const map = new Map(days.map(d => [d.date, d.points]));
+
+  let completedDays = 0;
+  let totalPoints = 0;
+  let bestDayPoints = 0;
+  let bestDayDate = null;
+
+  last7.forEach(date => {
+    const pts = map.get(date) || 0;
+    if (pts > 0) completedDays++;
+    totalPoints += pts;
+
+    if (pts > bestDayPoints) {
+      bestDayPoints = pts;
+      bestDayDate = date;
+    }
+  });
+
+  return {
+    completedDays,
+    totalPoints,
+    avgPoints: Number((totalPoints / 7).toFixed(2)),
+    bestDay: bestDayDate
+      ? new Date(bestDayDate).toDateString()
+      : "N/A"
+  };
+};
+
+const getWeeklyMotivation = (avg) => {
+  if (avg >= 4) return "Strong week. You’re building real momentum 💪";
+  if (avg >= 2) return "Steady progress beats intensity. Keep going 🌱";
+  if (avg > 0) return "Even imperfect weeks move you forward.";
+  return "A reset week is not failure — it’s information.";
+};
+
+
+const getTaskFrequency = (days, limit = 5) => {
+  const freq = {};
+
+  days.forEach(day => {
+    (day.completedTasks || []).forEach(task => {
+      freq[task] = (freq[task] || 0) + 1;
+    });
+  });
+
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([task, count]) => ({ task, count }));
+};
+
 const getMotivationMessage = () => {
   const index = Math.floor(Math.random() * motivationMessages.length);
   return motivationMessages[index];
@@ -138,18 +202,28 @@ cron.schedule("*/10 * * * *", async () => {
 
 /* ===================== ROUTES ===================== */
 
-app.get("/health", (_, res) => res.send("OK"));
+app.get("/health", (_, res) => res.send(true));
+
+
+setInterval(() => {
+  fetch(`${process.env.BASE_URL}/health`).catch(() => {});
+}, 30000); // Prevent Render.com from idling the app
 
 app.get("/data", async (_, res) => {
   const tasks = await Task.find().sort({ createdAt: 1 });
   const days = await Day.find().sort({ date: 1 });
+  const weeklySummary = getWeeklySummary(days);
+  const taskFrequency = getTaskFrequency(days,3);
   res.json({
-  tasks,
-  days,
-  today: today(),
-  currentStreak: getCurrentStreak(days),
-  longestStreak: getLongestStreak(days)
-});
+    tasks,
+    days,
+    today: today(),
+    currentStreak: getCurrentStreak(days),
+    longestStreak: getLongestStreak(days),
+    weeklySummary,
+    taskFrequency,
+    weeklyMotivation: getWeeklyMotivation(weeklySummary.avgPoints)
+  });
 });
 
 app.post("/add-task", async (req, res) => {
@@ -265,6 +339,20 @@ body { background:#f4f6f8; }
   <h5 class="center-align">Daily Tasks ✅</h5>
   <p class="center-align grey-text">${new Date(today()).toDateString()}</p>
   <h6 class="center-align" id="streakInfo"></h6>
+    <div class="card" id="weeklySummaryCard" style="display:none; margin-top:12px;">
+    <div class="card" id="taskFrequencyCard" style="display:none; margin-top:12px;">
+      <div class="card-content">
+        <h6>Most Consistent Tasks</h6>
+        <ul id="taskFrequencyList" class="browser-default"></ul>
+      </div>
+    </div>
+
+    <div class="card-content">
+      <h6>This Week</h6>
+      <p id="weeklyText" style="white-space:pre-line;"></p>
+      <div class="motivation" id="weeklyMotivation"></div>
+    </div>
+  </div>
 
   ${
     todayDone
@@ -337,34 +425,64 @@ document.addEventListener("DOMContentLoaded",()=> {
   M.Modal.init(document.querySelectorAll(".modal"));
 });
 
-fetch("/data").then(r=>r.json()).then(d=>{
+fetch("/data").then(r => r.json()).then(d => {
   document.getElementById("streakInfo").innerText =
-  "🔥 Current Streak: " + d.currentStreak +
-  " days | 🏆 Longest: " + d.longestStreak + " days";
+    "🔥 Current Streak: " + d.currentStreak +
+    " days | 🏆 Longest: " + d.longestStreak + " days";
 
   const history = document.getElementById("historyList");
-  d.days.forEach(day=>{
-    history.innerHTML += \`
-      <li class="collection-item">
-        <b>\${new Date(day.date).toDateString()}</b>
-        <span class="right">\${day.points} pts</span>
-        <div class="grey-text" style="font-size:13px;">
-          Tasks: \${day.completedTasks.join(", ")}
-        </div>
-        <div class="grey-text" style="font-size:13px;">
-          Reflection: \${day.note || "N/A"}
-        </div>
-      </li>\`;
+  d.days.forEach(day => {
+    history.innerHTML +=
+      "<li class='collection-item'>" +
+        "<b>" + new Date(day.date).toDateString() + "</b>" +
+        "<span class='right'>" + day.points + " pts</span>" +
+        "<div class='grey-text' style='font-size:13px;'>" +
+          "Tasks: " + day.completedTasks.join(', ') +
+        "</div>" +
+        "<div class='grey-text' style='font-size:13px;'>" +
+          "Reflection: " + (day.note || "N/A") +
+        "</div>" +
+      "</li>";
   });
 
-  new Chart(document.getElementById("pointsChart"),{
-    type:"line",
-    data:{
-      labels:d.days.map(x=>new Date(x.date).toDateString()),
-      datasets:[{ data:d.days.map(x=>x.points), label:"Daily Points" }]
+  new Chart(document.getElementById("pointsChart"), {
+    type: "line",
+    data: {
+      labels: d.days.map(x => new Date(x.date).toDateString()),
+      datasets: [{
+        data: d.days.map(x => x.points),
+        label: "Daily Points"
+      }]
     }
   });
+
+  if (d.weeklySummary) {
+    document.getElementById("weeklySummaryCard").style.display = "block";
+
+    document.getElementById("weeklyText").innerText =
+      "✔ " + d.weeklySummary.completedDays + " / 7 days completed\\n" +
+      "⭐ Total points: " + d.weeklySummary.totalPoints + "\\n" +
+      "📊 Avg per day: " + d.weeklySummary.avgPoints + "\\n" +
+      "🔥 Best day: " + d.weeklySummary.bestDay;
+
+    document.getElementById("weeklyMotivation").innerText =
+      d.weeklyMotivation;
+  }
+
+  if (d.taskFrequency && d.taskFrequency.length) {
+    document.getElementById("taskFrequencyCard").style.display = "block";
+    const list = document.getElementById("taskFrequencyList");
+
+    d.taskFrequency.forEach(item => {
+      const li = document.createElement("li");
+      li.innerText = item.task + " — " + item.count + " days";
+      list.appendChild(li);
+    });
+  }
+
+
 });
+
 
 ${
   todayDone
