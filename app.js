@@ -127,11 +127,35 @@ const getWeeklySummary = (days) => {
 };
 
 const getWeeklyMotivation = (avg) => {
-  if (avg >= 4) return "Strong week. You’re building real momentum 💪";
-  if (avg >= 2) return "Steady progress beats intensity. Keep going 🌱";
-  if (avg > 0) return "Even imperfect weeks move you forward.";
+  const dayOfWeek = new Date().getDay(); 
+  // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  // Early week (Mon–Tue)
+  if (dayOfWeek <= 2) {
+    if (avg > 0)
+      return "Good start. Early consistency sets the tone 🌱";
+    return "The week just started. Begin calmly and build momentum.";
+  }
+
+  // Mid week (Wed–Thu)
+  if (dayOfWeek <= 4) {
+    if (avg >= 3)
+      return "Strong mid-week rhythm. Stay steady 💪";
+    if (avg > 0)
+      return "Progress is forming. Keep showing up.";
+    return "There’s still plenty of time to shape this week.";
+  }
+
+  // Late week (Fri–Sun)
+  if (avg >= 4)
+    return "Strong week. You’re building real momentum 💪";
+  if (avg >= 2)
+    return "Steady progress beats intensity. Keep going 🌱";
+  if (avg > 0)
+    return "Even imperfect weeks move you forward.";
   return "A reset week is not failure — it’s information.";
 };
+
 
 
 const getTaskFrequency = (days, limit = 5) => {
