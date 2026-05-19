@@ -178,6 +178,18 @@ const getMotivationMessage = () => {
   return motivationMessages[index];
 };
 
+const getMilestone = (streak) => {
+  const milestones = {
+    7:  { label: "7-Day Streak", message: "One week in. The decision is real. Keep going. 🌱" },
+    14: { label: "14-Day Streak", message: "Two weeks of showing up. The habit is forming. 💪" },
+    21: { label: "21-Day Streak", message: "21 days — you're breaking the old pattern. 🔥" },
+    30: { label: "1 Month Streak", message: "One month of discipline. This is who you're becoming. 🏆" },
+    60: { label: "2 Month Streak", message: "60 days of showing up. You are proof it's possible. ⭐" },
+    90: { label: "90-Day Streak", message: "90 days. You are a different person than when you started. 🎯" }
+  };
+  return milestones[streak] || null;
+};
+
 /* ===================== EMAIL (OPTIONAL) ===================== */
 
 const transporter = nodemailer.createTransport({
@@ -238,15 +250,17 @@ app.get("/data", async (_, res) => {
   const days = await Day.find().sort({ date: 1 });
   const weeklySummary = getWeeklySummary(days);
   const taskFrequency = getTaskFrequency(days,3);
+  const currentStreak = getCurrentStreak(days);
   res.json({
     tasks,
     days,
     today: today(),
-    currentStreak: getCurrentStreak(days),
+    currentStreak,
     longestStreak: getLongestStreak(days),
     weeklySummary,
     taskFrequency,
-    weeklyMotivation: getWeeklyMotivation(weeklySummary.avgPoints)
+    weeklyMotivation: getWeeklyMotivation(weeklySummary.avgPoints),
+    milestone: getMilestone(currentStreak)
   });
 });
 
@@ -355,6 +369,18 @@ body { background:#f4f6f8; }
   text-align:center;
 }
 .motivation { margin-top:8px; color:#2e7d32; }
+.milestone-card {
+  display:none;
+  background:#fff8e1;
+  border-left:5px solid #ffc107;
+  border-radius:8px;
+  padding:16px;
+  margin-top:12px;
+  text-align:center;
+}
+.milestone-card h6 { color:#e65100; margin:6px 0; font-weight:bold; }
+.milestone-card p { color:#5d4037; margin:4px 0; }
+.heatmap-cell { aspect-ratio:1/1; border-radius:3px; min-height:18px; }
 </style>
 </head>
 
@@ -363,6 +389,39 @@ body { background:#f4f6f8; }
   <h5 class="center-align">Daily Tasks ✅</h5>
   <p class="center-align grey-text">${new Date(today()).toDateString()}</p>
   <h6 class="center-align" id="streakInfo"></h6>
+
+  <!-- MILESTONE CELEBRATION -->
+  <div class="milestone-card" id="milestoneCard">
+    <div style="font-size:2.2rem;" id="milestoneEmoji">🏆</div>
+    <h6 id="milestoneLabel"></h6>
+    <p id="milestoneMessage"></p>
+  </div>
+
+  <!-- ACTIVITY HEATMAP -->
+  <div class="card" style="margin-top:12px;">
+    <div class="card-content" style="padding-bottom:12px;">
+      <h6 style="margin-bottom:8px;">Activity — Last 5 Weeks</h6>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:4px;">
+        <span style="font-size:10px;color:#999;text-align:center;">Mon</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Tue</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Wed</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Thu</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Fri</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Sat</span>
+        <span style="font-size:10px;color:#999;text-align:center;">Sun</span>
+      </div>
+      <div id="heatmapGrid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;"></div>
+      <div style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11px; color:#9e9e9e;">
+        <span>Less</span>
+        <div style="width:13px;height:13px;background:#e0e0e0;border-radius:2px;"></div>
+        <div style="width:13px;height:13px;background:#c6e48b;border-radius:2px;"></div>
+        <div style="width:13px;height:13px;background:#7bc96f;border-radius:2px;"></div>
+        <div style="width:13px;height:13px;background:#239a3b;border-radius:2px;"></div>
+        <span>More</span>
+      </div>
+    </div>
+  </div>
+
     <div class="card" id="weeklySummaryCard" style="display:none; margin-top:12px;">
     <div class="card" id="taskFrequencyCard" style="display:none; margin-top:12px;">
       <div class="card-content">
@@ -504,6 +563,55 @@ fetch("/data").then(r => r.json()).then(d => {
     });
   }
 
+  // Milestone celebration
+  if (d.milestone) {
+    const card = document.getElementById("milestoneCard");
+    card.style.display = "block";
+    document.getElementById("milestoneLabel").innerText = "🎉 " + d.milestone.label + " Achieved!";
+    document.getElementById("milestoneMessage").innerText = d.milestone.message;
+  }
+
+  // Activity heatmap
+  (function buildHeatmap() {
+    const pointsMap = {};
+    d.days.forEach(function(day) { pointsMap[day.date] = day.points; });
+
+    const todayDate = new Date(d.today + "T00:00:00");
+    const dayOfWeekMon = (todayDate.getDay() + 6) % 7; // 0=Mon … 6=Sun
+
+    const startDate = new Date(todayDate);
+    startDate.setDate(startDate.getDate() - dayOfWeekMon - 28);
+
+    const grid = document.getElementById("heatmapGrid");
+
+    for (let i = 0; i < 35; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = date.toLocaleDateString("en-CA");
+      const isFuture = dateStr > d.today;
+      const pts = pointsMap[dateStr];
+
+      const cell = document.createElement("div");
+      cell.className = "heatmap-cell";
+      cell.title = dateStr + (pts !== undefined
+        ? " — " + pts + " pts"
+        : isFuture ? "" : " — missed");
+
+      if (isFuture) {
+        cell.style.background = "transparent";
+      } else if (pts === undefined) {
+        cell.style.background = "#e0e0e0";
+      } else if (pts <= 2) {
+        cell.style.background = "#c6e48b";
+      } else if (pts <= 4) {
+        cell.style.background = "#7bc96f";
+      } else {
+        cell.style.background = "#239a3b";
+      }
+
+      grid.appendChild(cell);
+    }
+  })();
 
 });
 
