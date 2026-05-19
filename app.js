@@ -337,9 +337,11 @@ app.get("/", async (_, res) => {
 <html>
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#f2f2f7" />
 
-<!-- OneSignal SDK -->
 <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
 <script>
 window.OneSignal = window.OneSignal || [];
@@ -352,291 +354,501 @@ OneSignal.push(function() {
   });
 });
 </script>
-
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <title>Daily Tasks</title>
-
 <style>
-body { background:#f4f6f8; }
-.container { max-width:600px; }
-.success-box {
-  background:#e8f5e9;
-  padding:16px;
-  border-radius:10px;
-  text-align:center;
+:root {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --green: #34c759;
+  --green-dk: #248a3d;
+  --blue: #007aff;
+  --amber: #ff9500;
+  --text: #1c1c1e;
+  --text2: #3c3c43;
+  --text3: #8e8e93;
+  --sep: #e5e5ea;
+  --r: 16px;
+  --safe-top: env(safe-area-inset-top, 44px);
+  --safe-bottom: env(safe-area-inset-bottom, 34px);
 }
-.motivation { margin-top:8px; color:#2e7d32; }
-.milestone-card {
-  display:none;
-  background:#fff8e1;
-  border-left:5px solid #ffc107;
-  border-radius:8px;
-  padding:16px;
-  margin-top:12px;
-  text-align:center;
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { background: var(--bg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 430px;
+  margin: 0 auto;
+  padding-bottom: calc(72px + var(--safe-bottom));
 }
-.milestone-card h6 { color:#e65100; margin:6px 0; font-weight:bold; }
-.milestone-card p { color:#5d4037; margin:4px 0; }
-.heatmap-cell { aspect-ratio:1/1; border-radius:3px; min-height:18px; }
+/* HEADER */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  padding: calc(var(--safe-top) + 6px) 20px 12px;
+  background: rgba(242,242,247,0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid var(--sep);
+}
+.app-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+.app-header p  { font-size: 13px; color: var(--text3); margin-top: 1px; }
+/* CONTENT */
+.content { padding: 16px 16px 0; }
+/* SECTION LABEL */
+.sec-label {
+  font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.3px;
+  color: var(--text3); padding: 0 4px 6px; margin-top: 4px;
+}
+/* CARD */
+.card { background: var(--card); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
+/* STREAK */
+.streak-row { display: flex; justify-content: space-around; padding: 20px 16px; }
+.streak-item { text-align: center; }
+.streak-num { font-size: 44px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+.streak-num.fire   { color: var(--amber); }
+.streak-num.trophy { color: #5856d6; }
+.streak-lbl { font-size: 12px; color: var(--text3); margin-top: 4px; font-weight: 500; }
+/* MILESTONE */
+.milestone-card { display: none; }
+.milestone-inner {
+  background: linear-gradient(135deg,#fff8e1,#fffde7);
+  border-left: 4px solid var(--amber);
+  padding: 18px 20px; text-align: center;
+}
+.milestone-emoji { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+.milestone-title { font-size: 17px; font-weight: 700; color: #b25000; }
+.milestone-msg   { font-size: 14px; color: #795548; margin-top: 4px; line-height: 1.45; }
+/* TASK ROWS */
+.task-row {
+  display: flex; align-items: center; padding: 14px 16px; gap: 14px;
+  cursor: pointer; transition: background 0.12s;
+  -webkit-user-select: none; user-select: none;
+}
+.task-row:not(:last-of-type) { border-bottom: 0.5px solid var(--sep); }
+.task-row:active { background: #f2f2f7; }
+.check-circle {
+  width: 27px; height: 27px; border-radius: 50%;
+  border: 2px solid #c7c7cc; background: #fff; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  font-size: 14px; color: transparent;
+}
+.task-row.checked .check-circle {
+  background: var(--green); border-color: var(--green);
+  color: white; transform: scale(1.12);
+}
+.task-name { font-size: 16px; flex: 1; }
+.task-row.checked .task-name { color: var(--text3); text-decoration: line-through; }
+/* NOTE */
+.note-wrap { padding: 11px 16px; border-top: 0.5px solid var(--sep); }
+.note-input {
+  width: 100%; border: none; outline: none;
+  font-size: 15px; font-family: inherit;
+  color: var(--text); background: transparent; padding: 2px 0;
+}
+.note-input::placeholder { color: var(--text3); }
+/* SUBMIT */
+.submit-btn {
+  display: block; width: calc(100% - 32px);
+  margin: 0 16px 12px; padding: 15px;
+  background: var(--green); color: white; border: none;
+  border-radius: 14px; font-size: 17px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+  transition: transform 0.1s, opacity 0.1s;
+}
+.submit-btn:active { transform: scale(0.97); opacity: 0.85; }
+/* SUCCESS */
+.success-inner { text-align: center; padding: 28px 20px; }
+.success-icon  { font-size: 3.2rem; display: block; margin-bottom: 10px; }
+.success-title { font-size: 18px; font-weight: 700; color: var(--green-dk); }
+.success-msg   { font-size: 14px; color: var(--text2); margin-top: 8px; line-height: 1.5; }
+.success-tasks { font-size: 13px; color: var(--text3); margin-top: 10px; }
+/* WEEKLY STATS GRID */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--sep); }
+.stat-cell { background: var(--card); padding: 14px 16px; }
+.stat-val  { font-size: 22px; font-weight: 700; }
+.stat-key  { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.week-motivation { padding: 12px 16px; font-size: 14px; color: var(--text2); border-top: 0.5px solid var(--sep); font-style: italic; }
+/* HEATMAP */
+.heatmap-day-labels {
+  display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; padding: 12px 16px 4px;
+}
+.heatmap-day-labels span { font-size: 10px; color: var(--text3); text-align: center; font-weight: 500; }
+.heatmap-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; padding: 0 16px 10px; }
+.heatmap-cell { aspect-ratio: 1/1; border-radius: 4px; min-height: 20px; }
+.heatmap-legend {
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 16px 14px; font-size: 11px; color: var(--text3);
+}
+.legend-dot { width: 13px; height: 13px; border-radius: 3px; }
+/* TASK FREQUENCY BARS */
+.freq-row {
+  display: flex; align-items: center;
+  padding: 12px 16px; gap: 12px;
+}
+.freq-row:not(:last-child) { border-bottom: 0.5px solid var(--sep); }
+.freq-name  { font-size: 15px; flex: 1; }
+.freq-bar-wrap { width: 80px; height: 6px; background: var(--sep); border-radius: 3px; overflow: hidden; }
+.freq-bar   { height: 100%; background: var(--green); border-radius: 3px; width: 0; transition: width 0.7s cubic-bezier(0.34,1.1,0.64,1); }
+.freq-count { font-size: 13px; color: var(--text3); font-weight: 600; min-width: 28px; text-align: right; }
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(58px + var(--safe-bottom));
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--sep);
+  display: flex; justify-content: space-around; align-items: flex-start;
+  padding-top: 8px; z-index: 200; max-width: 430px; margin: 0 auto;
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer; padding: 0 24px;
+  font-family: inherit; transition: opacity 0.1s;
+}
+.nav-btn:active { opacity: 0.45; }
+.nav-icon  { font-size: 23px; }
+.nav-label { font-size: 10px; font-weight: 500; color: var(--text3); }
+/* OVERLAY + BOTTOM SHEET */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.38); z-index: 300;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.sheet {
+  display: none; position: fixed;
+  bottom: 0; left: 0; right: 0; max-height: 86vh;
+  background: var(--card); border-radius: 20px 20px 0 0;
+  z-index: 400; overflow: hidden;
+  animation: slideUp 0.32s cubic-bezier(0.34,1.15,0.64,1);
+  padding-bottom: var(--safe-bottom);
+  max-width: 430px; margin: 0 auto;
+}
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.sheet-handle { width: 36px; height: 5px; background: var(--sep); border-radius: 3px; margin: 10px auto 0; }
+.sheet-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px 12px; border-bottom: 0.5px solid var(--sep);
+}
+.sheet-title { font-size: 18px; font-weight: 700; }
+.sheet-close {
+  background: var(--bg); border: none; border-radius: 50%;
+  width: 30px; height: 30px; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--text3);
+}
+.sheet-body { overflow-y: auto; max-height: calc(86vh - 76px); padding: 16px 20px; }
+/* HISTORY LIST */
+.history-item { padding: 13px 0; border-bottom: 0.5px solid var(--sep); }
+.history-item:last-child { border-bottom: none; }
+.history-top  { display: flex; justify-content: space-between; align-items: baseline; }
+.history-date { font-size: 15px; font-weight: 600; }
+.history-pts  { font-size: 13px; font-weight: 700; color: var(--green-dk); }
+.history-tasks { font-size: 13px; color: var(--text3); margin-top: 3px; }
+.history-note  { font-size: 13px; color: var(--text2); margin-top: 3px; font-style: italic; }
+/* ADD TASK FORM */
+.add-input {
+  width: 100%; padding: 14px; font-size: 16px; font-family: inherit;
+  border: 1.5px solid var(--sep); border-radius: 12px; outline: none;
+  margin-bottom: 14px; background: var(--bg);
+  transition: border-color 0.18s;
+}
+.add-input:focus { border-color: var(--blue); }
+.add-btn {
+  width: 100%; padding: 15px; background: var(--blue); color: white;
+  border: none; border-radius: 14px; font-size: 17px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+  transition: opacity 0.1s, transform 0.1s;
+}
+.add-btn:active { opacity: 0.8; transform: scale(0.98); }
 </style>
 </head>
-
 <body>
-<div class="container">
-  <h5 class="center-align">Daily Tasks ✅</h5>
-  <p class="center-align grey-text">${new Date(today()).toDateString()}</p>
-  <h6 class="center-align" id="streakInfo"></h6>
 
-  <!-- MILESTONE CELEBRATION -->
-  <div class="milestone-card" id="milestoneCard">
-    <div style="font-size:2.2rem;" id="milestoneEmoji">🏆</div>
-    <h6 id="milestoneLabel"></h6>
-    <p id="milestoneMessage"></p>
+<!-- STICKY HEADER -->
+<div class="app-header">
+  <h1>Daily Tasks</h1>
+  <p>${new Date().toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", timeZone:"Asia/Kolkata" })}</p>
+</div>
+
+<div class="content">
+
+  <!-- STREAK -->
+  <p class="sec-label">Streaks</p>
+  <div class="card">
+    <div class="streak-row">
+      <div class="streak-item">
+        <div class="streak-num fire" id="currentStreak">—</div>
+        <div class="streak-lbl">🔥 Current</div>
+      </div>
+      <div style="width:1px;background:var(--sep);"></div>
+      <div class="streak-item">
+        <div class="streak-num trophy" id="longestStreak">—</div>
+        <div class="streak-lbl">🏆 Longest</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MILESTONE -->
+  <div class="card milestone-card" id="milestoneCard">
+    <div class="milestone-inner">
+      <span class="milestone-emoji">🏆</span>
+      <div class="milestone-title" id="milestoneLabel"></div>
+      <div class="milestone-msg"   id="milestoneMessage"></div>
+    </div>
   </div>
 
   <!-- ACTIVITY HEATMAP -->
-  <div class="card" style="margin-top:12px;">
-    <div class="card-content" style="padding-bottom:12px;">
-      <h6 style="margin-bottom:8px;">Activity — Last 5 Weeks</h6>
-      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:4px;">
-        <span style="font-size:10px;color:#999;text-align:center;">Mon</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Tue</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Wed</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Thu</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Fri</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Sat</span>
-        <span style="font-size:10px;color:#999;text-align:center;">Sun</span>
-      </div>
-      <div id="heatmapGrid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;"></div>
-      <div style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11px; color:#9e9e9e;">
-        <span>Less</span>
-        <div style="width:13px;height:13px;background:#e0e0e0;border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:#c6e48b;border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:#7bc96f;border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:#239a3b;border-radius:2px;"></div>
-        <span>More</span>
-      </div>
+  <p class="sec-label">Activity</p>
+  <div class="card">
+    <div class="heatmap-day-labels">
+      <span>M</span><span>T</span><span>W</span><span>T</span>
+      <span>F</span><span>S</span><span>S</span>
+    </div>
+    <div class="heatmap-grid" id="heatmapGrid"></div>
+    <div class="heatmap-legend">
+      <span>Less</span>
+      <div class="legend-dot" style="background:#e0e0e0;"></div>
+      <div class="legend-dot" style="background:#c6e48b;"></div>
+      <div class="legend-dot" style="background:#7bc96f;"></div>
+      <div class="legend-dot" style="background:#239a3b;"></div>
+      <span>More</span>
     </div>
   </div>
 
-    <div class="card" id="weeklySummaryCard" style="display:none; margin-top:12px;">
-    <div class="card" id="taskFrequencyCard" style="display:none; margin-top:12px;">
-      <div class="card-content">
-        <h6>Most Consistent Tasks</h6>
-        <ul id="taskFrequencyList" class="browser-default"></ul>
-      </div>
+  <!-- TODAY: TASK FORM or SUCCESS -->
+  <p class="sec-label">Today</p>
+  ${todayDone
+    ? `<div class="card">
+    <div class="success-inner">
+      <span class="success-icon">✅</span>
+      <div class="success-title">Done for today</div>
+      <div class="success-msg">${getMotivationMessage()}</div>
+      <div class="success-tasks">${todayDone.completedTasks.join("  ·  ")}</div>
     </div>
-
-    <div class="card-content">
-      <h6>This Week</h6>
-      <p id="weeklyText" style="white-space:pre-line;"></p>
-      <div class="motivation" id="weeklyMotivation"></div>
+  </div>`
+    : `<div class="card" id="taskCard">
+    ${tasks.map(t => `<div class="task-row" data-task="${t.name}" onclick="toggleTask(this)">
+      <div class="check-circle">✓</div>
+      <div class="task-name">${t.name}</div>
+    </div>`).join("")}
+    <div class="note-wrap">
+      <input class="note-input" id="noteInput" type="text" placeholder="Any note for today? (optional)" />
     </div>
   </div>
-
-  ${
-    todayDone
-      ? `
-      <div class="success-box">
-        <h6>Okay, done for the day ✅</h6>
-        <div class="motivation">
-          ${getMotivationMessage()}
-        </div>
-      </div>
-      `
-      : `
-      <div class="card">
-        <div class="card-content">
-          <form id="taskForm">
-            <ul class="collection">
-              ${tasks
-                .map(
-                  t => `
-                <li class="collection-item">
-                  <label>
-                    <input type="checkbox" value="${t.name}" />
-                    <span>${t.name}</span>
-                  </label>
-                </li>`
-                )
-                .join("")}
-            </ul>
-            <div class="input-field">
-              <input id="note" type="text" placeholder="Any note for today? (optional)">
-            </div>
-
-            <button class="btn green full-width">Submit Today</button>
-          </form>
-        </div>
-      </div>
-      `
+  <button class="submit-btn" id="submitBtn" onclick="submitTasks()">Submit Today</button>`
   }
 
-  <div class="center-align" style="margin-top:16px;">
-    <a class="btn modal-trigger blue" href="#addTaskModal">Add Task</a>
-    <a class="btn modal-trigger grey" href="#historyModal">History</a>
+  <!-- WEEKLY SUMMARY -->
+  <p class="sec-label" id="weekLabel" style="display:none;">This Week</p>
+  <div class="card" id="weeklyCard" style="display:none;">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="week-motivation" id="weekMotivation"></div>
+  </div>
+
+  <!-- MOST CONSISTENT -->
+  <p class="sec-label" id="freqLabel" style="display:none;">Most Consistent</p>
+  <div class="card" id="freqCard" style="display:none;"></div>
+
+</div><!-- /content -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn" onclick="openSheet('historySheet')">
+    <span class="nav-icon">📅</span>
+    <span class="nav-label">History</span>
+  </button>
+  <button class="nav-btn" onclick="openSheet('addSheet')">
+    <span class="nav-icon" style="font-size:30px;color:var(--green);">＋</span>
+    <span class="nav-label">Add Task</span>
+  </button>
+  <button class="nav-btn" onclick="openSheet('historySheet')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Stats</span>
+  </button>
+</nav>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeSheets()"></div>
+
+<!-- HISTORY SHEET -->
+<div class="sheet" id="historySheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <span class="sheet-title">History</span>
+    <button class="sheet-close" onclick="closeSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <canvas id="pointsChart" style="margin-bottom:20px;"></canvas>
+    <div id="historyList"></div>
   </div>
 </div>
 
-<!-- ADD TASK MODAL -->
-<div id="addTaskModal" class="modal">
-  <div class="modal-content">
-    <h6>Add New Task</h6>
+<!-- ADD TASK SHEET -->
+<div class="sheet" id="addSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <span class="sheet-title">New Task</span>
+    <button class="sheet-close" onclick="closeSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
     <form method="POST" action="/add-task">
-      <input name="name" placeholder="Task name" required />
-      <button class="btn green">Save</button>
+      <input class="add-input" name="name" placeholder="e.g. Morning walk" required autocomplete="off" />
+      <button type="submit" class="add-btn">Save Task</button>
     </form>
   </div>
 </div>
 
-<!-- HISTORY MODAL -->
-<div id="historyModal" class="modal">
-  <div class="modal-content">
-    <h6>Total Points</h6>
-    <canvas id="pointsChart"></canvas>
-    <ul class="collection" id="historyList"></ul>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-
 <script>
-document.addEventListener("DOMContentLoaded",()=> {
-  M.Modal.init(document.querySelectorAll(".modal"));
-});
-
-fetch("/data").then(r => r.json()).then(d => {
-  document.getElementById("streakInfo").innerText =
-    "🔥 Current Streak: " + d.currentStreak +
-    " days | 🏆 Longest: " + d.longestStreak + " days";
-
-  const history = document.getElementById("historyList");
-  d.days.forEach(day => {
-    history.innerHTML +=
-      "<li class='collection-item'>" +
-        "<b>" + new Date(day.date).toDateString() + "</b>" +
-        "<span class='right'>" + day.points + " pts</span>" +
-        "<div class='grey-text' style='font-size:13px;'>" +
-          "Tasks: " + day.completedTasks.join(', ') +
-        "</div>" +
-        "<div class='grey-text' style='font-size:13px;'>" +
-          "Reflection: " + (day.note || "N/A") +
-        "</div>" +
-      "</li>";
+function openSheet(id) {
+  document.getElementById("overlay").style.display = "block";
+  document.getElementById(id).style.display = "block";
+}
+function closeSheets() {
+  document.getElementById("overlay").style.display = "none";
+  ["historySheet","addSheet"].forEach(function(id) {
+    document.getElementById(id).style.display = "none";
   });
+}
 
-  new Chart(document.getElementById("pointsChart"), {
-    type: "line",
-    data: {
-      labels: d.days.map(x => new Date(x.date).toDateString()),
-      datasets: [{
-        data: d.days.map(x => x.points),
-        label: "Daily Points"
-      }]
-    }
+function toggleTask(row) {
+  row.classList.toggle("checked");
+}
+
+async function submitTasks() {
+  var checked = document.querySelectorAll(".task-row.checked");
+  var btn = document.getElementById("submitBtn");
+  if (!checked.length) {
+    btn.style.background = "#ff3b30";
+    btn.innerText = "Select at least one task";
+    setTimeout(function() {
+      btn.style.background = "";
+      btn.innerText = "Submit Today";
+    }, 1600);
+    return;
+  }
+  var tasks = Array.from(checked).map(function(r) { return r.dataset.task; });
+  var note  = document.getElementById("noteInput").value;
+  btn.disabled = true; btn.innerText = "Saving…";
+  var res = await fetch("/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tasks: tasks, note: note })
   });
+  if (await res.text() === "OK") location.reload();
+}
 
-  if (d.weeklySummary) {
-    document.getElementById("weeklySummaryCard").style.display = "block";
+fetch("/data").then(function(r) { return r.json(); }).then(function(d) {
+  document.getElementById("currentStreak").innerText = d.currentStreak;
+  document.getElementById("longestStreak").innerText = d.longestStreak;
 
-    document.getElementById("weeklyText").innerText =
-      "✔ " + d.weeklySummary.completedDays + " / 7 days completed\\n" +
-      "⭐ Total points: " + d.weeklySummary.totalPoints + "\\n" +
-      "📊 Avg per day: " + d.weeklySummary.avgPoints + "\\n" +
-      "🔥 Best day: " + d.weeklySummary.bestDay;
-
-    document.getElementById("weeklyMotivation").innerText =
-      d.weeklyMotivation;
-  }
-
-  if (d.taskFrequency && d.taskFrequency.length) {
-    document.getElementById("taskFrequencyCard").style.display = "block";
-    const list = document.getElementById("taskFrequencyList");
-
-    d.taskFrequency.forEach(item => {
-      const li = document.createElement("li");
-      li.innerText = item.task + " — " + item.count + " days";
-      list.appendChild(li);
-    });
-  }
-
-  // Milestone celebration
+  // Milestone
   if (d.milestone) {
-    const card = document.getElementById("milestoneCard");
-    card.style.display = "block";
-    document.getElementById("milestoneLabel").innerText = "🎉 " + d.milestone.label + " Achieved!";
+    var mc = document.getElementById("milestoneCard");
+    mc.style.display = "block";
+    document.getElementById("milestoneLabel").innerText  = "🎉 " + d.milestone.label + " Achieved!";
     document.getElementById("milestoneMessage").innerText = d.milestone.message;
   }
 
-  // Activity heatmap
-  (function buildHeatmap() {
-    const pointsMap = {};
-    d.days.forEach(function(day) { pointsMap[day.date] = day.points; });
-
-    const todayDate = new Date(d.today + "T00:00:00");
-    const dayOfWeekMon = (todayDate.getDay() + 6) % 7; // 0=Mon … 6=Sun
-
-    const startDate = new Date(todayDate);
-    startDate.setDate(startDate.getDate() - dayOfWeekMon - 28);
-
-    const grid = document.getElementById("heatmapGrid");
-
-    for (let i = 0; i < 35; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      const dateStr = date.toLocaleDateString("en-CA");
-      const isFuture = dateStr > d.today;
-      const pts = pointsMap[dateStr];
-
-      const cell = document.createElement("div");
+  // Heatmap
+  (function() {
+    var pm = {};
+    d.days.forEach(function(day) { pm[day.date] = day.points; });
+    var td = new Date(d.today + "T00:00:00");
+    var dow = (td.getDay() + 6) % 7;
+    var start = new Date(td);
+    start.setDate(start.getDate() - dow - 28);
+    var grid = document.getElementById("heatmapGrid");
+    for (var i = 0; i < 35; i++) {
+      var date = new Date(start);
+      date.setDate(start.getDate() + i);
+      var ds = date.toLocaleDateString("en-CA");
+      var isFuture = ds > d.today;
+      var pts = pm[ds];
+      var cell = document.createElement("div");
       cell.className = "heatmap-cell";
-      cell.title = dateStr + (pts !== undefined
-        ? " — " + pts + " pts"
-        : isFuture ? "" : " — missed");
-
-      if (isFuture) {
-        cell.style.background = "transparent";
-      } else if (pts === undefined) {
-        cell.style.background = "#e0e0e0";
-      } else if (pts <= 2) {
-        cell.style.background = "#c6e48b";
-      } else if (pts <= 4) {
-        cell.style.background = "#7bc96f";
-      } else {
-        cell.style.background = "#239a3b";
-      }
-
+      cell.title = ds + (pts !== undefined ? " — " + pts + " pts" : isFuture ? "" : " — missed");
+      if (isFuture)          cell.style.background = "transparent";
+      else if (pts === undefined) cell.style.background = "#e0e0e0";
+      else if (pts <= 2)     cell.style.background = "#c6e48b";
+      else if (pts <= 4)     cell.style.background = "#7bc96f";
+      else                   cell.style.background = "#239a3b";
       grid.appendChild(cell);
     }
   })();
 
-});
-
-
-${
-  todayDone
-    ? ""
-    : `
-document.getElementById("taskForm").onsubmit = async e=>{
-  e.preventDefault();
-  const checked = [...document.querySelectorAll("input[type=checkbox]:checked")];
-  if(!checked.length){
-    M.toast({html:"Select at least one task"});
-    return;
+  // Weekly summary
+  if (d.weeklySummary) {
+    document.getElementById("weekLabel").style.display = "block";
+    document.getElementById("weeklyCard").style.display = "block";
+    var stats = [
+      { val: d.weeklySummary.completedDays + "/7", key: "Days Done" },
+      { val: d.weeklySummary.totalPoints,           key: "Total Points" },
+      { val: d.weeklySummary.avgPoints,             key: "Avg / Day" },
+      { val: d.weeklySummary.bestDay.split(" ").slice(0,3).join(" "), key: "Best Day" }
+    ];
+    var sg = document.getElementById("statGrid");
+    stats.forEach(function(s) {
+      sg.innerHTML += "<div class='stat-cell'><div class='stat-val'>" + s.val +
+        "</div><div class='stat-key'>" + s.key + "</div></div>";
+    });
+    document.getElementById("weekMotivation").innerText = d.weeklyMotivation;
   }
 
-  const res = await fetch("/submit",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ tasks: checked.map(c=>c.value) , note: document.getElementById("note").value })
+  // Task frequency
+  if (d.taskFrequency && d.taskFrequency.length) {
+    document.getElementById("freqLabel").style.display = "block";
+    var fc = document.getElementById("freqCard");
+    fc.style.display = "block";
+    var max = d.taskFrequency[0].count;
+    d.taskFrequency.forEach(function(item) {
+      var pct = Math.round((item.count / max) * 100);
+      fc.innerHTML += "<div class='freq-row'>" +
+        "<div class='freq-name'>" + item.task + "</div>" +
+        "<div class='freq-bar-wrap'><div class='freq-bar' data-pct='" + pct + "'></div></div>" +
+        "<div class='freq-count'>" + item.count + "d</div>" +
+        "</div>";
+    });
+    setTimeout(function() {
+      document.querySelectorAll(".freq-bar").forEach(function(b) {
+        b.style.width = b.dataset.pct + "%";
+      });
+    }, 120);
+  }
+
+  // History list (newest first)
+  d.days.slice().reverse().forEach(function(day) {
+    document.getElementById("historyList").innerHTML +=
+      "<div class='history-item'>" +
+        "<div class='history-top'>" +
+          "<span class='history-date'>" + new Date(day.date).toDateString() + "</span>" +
+          "<span class='history-pts'>" + day.points + " pts</span>" +
+        "</div>" +
+        "<div class='history-tasks'>" + day.completedTasks.join("  ·  ") + "</div>" +
+        (day.note ? "<div class='history-note'>\"" + day.note + "\"</div>" : "") +
+      "</div>";
   });
 
-  if(await res.text()==="OK") location.reload();
-};`
-}
+  // Points chart
+  new Chart(document.getElementById("pointsChart"), {
+    type: "line",
+    data: {
+      labels: d.days.map(function(x) { return x.date.slice(5); }),
+      datasets: [{
+        data: d.days.map(function(x) { return x.points; }),
+        label: "Points", fill: true, tension: 0.4,
+        borderColor: "#34c759", backgroundColor: "rgba(52,199,89,0.1)",
+        pointRadius: 3, pointBackgroundColor: "#34c759"
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { x: { display: false }, y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+});
 </script>
 </body>
 </html>`);
