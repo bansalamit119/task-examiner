@@ -386,9 +386,7 @@ body {
 .app-header {
   position: sticky; top: 0; z-index: 100;
   padding: calc(var(--safe-top) + 6px) 20px 12px;
-  background: rgba(242,242,247,0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #f2f2f7;
   border-bottom: 0.5px solid var(--sep);
 }
 .app-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
@@ -497,37 +495,37 @@ body {
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   height: calc(58px + var(--safe-bottom));
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  background: #ffffff;
   border-top: 0.5px solid var(--sep);
   display: flex; justify-content: space-around; align-items: flex-start;
-  padding-top: 8px; z-index: 200; max-width: 430px; margin: 0 auto;
+  padding-top: 8px; z-index: 200;
 }
 .nav-btn {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   background: none; border: none; cursor: pointer; padding: 0 24px;
   font-family: inherit; transition: opacity 0.1s;
+  -webkit-appearance: none; appearance: none;
 }
 .nav-btn:active { opacity: 0.45; }
 .nav-icon  { font-size: 23px; }
 .nav-label { font-size: 10px; font-weight: 500; color: var(--text3); }
-/* OVERLAY + BOTTOM SHEET */
+/* OVERLAY + BOTTOM SHEET — transition-based, no display toggling (fixes iOS Safari z-index ghost bug) */
 .overlay {
-  display: none; position: fixed; inset: 0;
+  position: fixed; inset: 0;
   background: rgba(0,0,0,0.38); z-index: 300;
-  animation: fadeIn 0.18s ease;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
 }
-@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.overlay.open { opacity: 1; pointer-events: auto; }
 .sheet {
-  display: none; position: fixed;
-  bottom: 0; left: 0; right: 0; max-height: 86vh;
+  position: fixed; bottom: 0; left: 0; right: 0; max-height: 86vh;
   background: var(--card); border-radius: 20px 20px 0 0;
   z-index: 400; overflow: hidden;
-  animation: slideUp 0.32s cubic-bezier(0.34,1.15,0.64,1);
   padding-bottom: var(--safe-bottom);
-  max-width: 430px; margin: 0 auto;
+  transform: translateY(100%); pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.34,1.15,0.64,1);
 }
-@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.sheet.open { transform: translateY(0); pointer-events: auto; }
 .sheet-handle { width: 36px; height: 5px; background: var(--sep); border-radius: 3px; margin: 10px auto 0; }
 .sheet-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -703,13 +701,13 @@ body {
 
 <script>
 function openSheet(id) {
-  document.getElementById("overlay").style.display = "block";
-  document.getElementById(id).style.display = "block";
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById(id).classList.add("open");
 }
 function closeSheets() {
-  document.getElementById("overlay").style.display = "none";
+  document.getElementById("overlay").classList.remove("open");
   ["historySheet","addSheet"].forEach(function(id) {
-    document.getElementById(id).style.display = "none";
+    document.getElementById(id).classList.remove("open");
   });
 }
 
