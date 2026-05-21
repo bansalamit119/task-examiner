@@ -423,6 +423,7 @@ body {
   display: flex; align-items: center; padding: 14px 16px; gap: 14px;
   cursor: pointer; transition: background 0.12s;
   -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
 }
 .task-row:not(:last-of-type) { border-bottom: 0.5px solid var(--sep); }
 .task-row:active { background: #f2f2f7; }
@@ -455,6 +456,7 @@ body {
   border-radius: 14px; font-size: 17px; font-weight: 600;
   font-family: inherit; cursor: pointer;
   transition: transform 0.1s, opacity 0.1s;
+  touch-action: manipulation;
 }
 .submit-btn:active { transform: scale(0.97); opacity: 0.85; }
 /* SUCCESS */
@@ -505,27 +507,28 @@ body {
   background: none; border: none; cursor: pointer; padding: 0 24px;
   font-family: inherit; transition: opacity 0.1s;
   -webkit-appearance: none; appearance: none;
+  touch-action: manipulation;
 }
 .nav-btn:active { opacity: 0.45; }
 .nav-icon  { font-size: 23px; }
 .nav-label { font-size: 10px; font-weight: 500; color: var(--text3); }
-/* OVERLAY + BOTTOM SHEET — transition-based, no display toggling (fixes iOS Safari z-index ghost bug) */
+/* OVERLAY + BOTTOM SHEET */
 .overlay {
-  position: fixed; inset: 0;
+  display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.38); z-index: 300;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.2s ease;
+  opacity: 0; transition: opacity 0.2s ease;
 }
-.overlay.open { opacity: 1; pointer-events: auto; }
+.overlay.open { opacity: 1; }
 .sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; max-height: 86vh;
+  display: none; position: fixed;
+  bottom: 0; left: 0; right: 0; max-height: 86vh;
   background: var(--card); border-radius: 20px 20px 0 0;
   z-index: 400; overflow: hidden;
   padding-bottom: var(--safe-bottom);
-  transform: translateY(100%); pointer-events: none;
+  transform: translateY(100%);
   transition: transform 0.32s cubic-bezier(0.34,1.15,0.64,1);
 }
-.sheet.open { transform: translateY(0); pointer-events: auto; }
+.sheet.open { transform: translateY(0); }
 .sheet-handle { width: 36px; height: 5px; background: var(--sep); border-radius: 3px; margin: 10px auto 0; }
 .sheet-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -536,6 +539,7 @@ body {
   background: var(--bg); border: none; border-radius: 50%;
   width: 30px; height: 30px; font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; color: var(--text3);
+  touch-action: manipulation;
 }
 .sheet-body { overflow-y: auto; max-height: calc(86vh - 76px); padding: 16px 20px; }
 /* HISTORY LIST */
@@ -701,14 +705,23 @@ body {
 
 <script>
 function openSheet(id) {
-  document.getElementById("overlay").classList.add("open");
-  document.getElementById(id).classList.add("open");
+  var overlay = document.getElementById("overlay");
+  var sheet   = document.getElementById(id);
+  overlay.style.display = "block";
+  sheet.style.display   = "block";
+  sheet.offsetHeight; // force reflow so transition fires from translateY(100%)
+  overlay.classList.add("open");
+  sheet.classList.add("open");
 }
 function closeSheets() {
-  document.getElementById("overlay").classList.remove("open");
+  var overlay = document.getElementById("overlay");
+  overlay.classList.remove("open");
   ["historySheet","addSheet"].forEach(function(id) {
-    document.getElementById(id).classList.remove("open");
+    var el = document.getElementById(id);
+    el.classList.remove("open");
+    setTimeout(function() { el.style.display = "none"; }, 340);
   });
+  setTimeout(function() { overlay.style.display = "none"; }, 220);
 }
 
 function toggleTask(row) {
